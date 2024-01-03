@@ -1,5 +1,3 @@
-import {Interface} from 'readline/promises';
-
 const {createLogger, transports, format} = require('winston');
 
 interface info {
