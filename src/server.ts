@@ -1,7 +1,7 @@
-const express = require('express');
+import express from 'express';
 import logger from './logger';
 import dotenv from 'dotenv';
-const morgan = require('morgan');
+import morgan from 'morgan';
 
 const app = express();
 dotenv.config();
@@ -17,3 +17,4 @@ const morganMiddleware = morgan(
 );
 
 app.use(morganMiddleware);
+
