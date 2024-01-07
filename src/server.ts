@@ -1,20 +1,24 @@
-import express from 'express';
-import logger from './logger';
 import dotenv from 'dotenv';
-import morgan from 'morgan';
+import app from './app';
 
-const app = express();
 dotenv.config();
 
-const morganMiddleware = morgan(
-  ':method :url :status :res[content-length] - :response-time ms',
-  {
-    stream: {
-      // Configure Morgan to use our custom logger with the http severity
-      write: (message: string) => logger.http(message.trim()),
-    },
-  }
-);
+const port: string | number = process.env.PORT || 5656;
+const server = app.listen(port, () => {
+  console.log(`App running on port ${port}...`);
+});
 
-app.use(morganMiddleware);
+process.on('unhandledRejection', (err: Error) => {
+  console.log('UNHANDLED REJECTION! 💥 Shutting down...');
+  console.log(err.name, err.message);
+  server.close(() => {
+    process.exit(1);
+  });
+});
 
+process.on('SIGTERM', () => {
+  console.log('👋 SIGTERM RECEIVED. Shutting down gracefully');
+  server.close(() => {
+    console.log('💥 Process terminated!');
+  });
+});
