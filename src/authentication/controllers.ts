@@ -13,6 +13,14 @@ const signup = async (req: Request, res: Response, next: NextFunction) => {
     date_of_birth,
   } = req.body;
 
+  console.log('ahhhhhhhhh');
+
+  console.log(
+    process.env.DB_USER,
+    process.env.DB_HOST,
+    process.env.DB_DATABASE,
+    typeof process.env.DB_PASSWORD
+  );
   //check if password==confirmPassword
   if (password !== confirmPassword) {
     return next(
