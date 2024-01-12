@@ -1,19 +1,19 @@
 import pg from 'pg';
 const Pool = pg.Pool;
-
-console.log(
-  process.env.DB_USER,
-  process.env.DB_HOST,
-  process.env.DB_DATABASE,
-  process.env.DB_PASSWORD
-);
+import {
+  DB_USER,
+  DB_HOST,
+  DB_DATABASE,
+  DB_PASSWORD,
+  DB_PORT,
+} from './../config/envConfig';
 
 const pool = new Pool({
-  user: process.env.DB_USER,
-  host: process.env.DB_HOST,
-  database: process.env.DB_DATABASE,
-  password: process.env.DB_PASSWORD,
-  port: parseInt(process.env.DB_PORT as string),
+  user: DB_USER,
+  host: DB_HOST,
+  database: DB_DATABASE,
+  password: DB_PASSWORD,
+  port: parseInt(DB_PORT as string),
 });
 
 export default pool;

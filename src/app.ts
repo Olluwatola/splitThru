@@ -17,7 +17,7 @@ const morganMiddleware = morgan(
 );
 
 app.use(express.json());
-app.use(express.urlencoded());
+app.use(express.urlencoded({extended: true}));
 
 //routes
 app.use('/api/v1/auth', authRouter);

@@ -1,53 +1,74 @@
 import {Request, Response, NextFunction} from 'express';
 import pool from './../db/db';
 import AppError from '../utils/appError';
-// apply catch async
+import catchAsync from './../utils/catchAsync';
+import authServices from './services';
+import {JWT_EXPIRES_IN} from '../config/envConfig';
 
-const signup = async (req: Request, res: Response, next: NextFunction) => {
-  const {
-    email,
-    password,
-    confirmPassword,
-    last_name,
-    first_name,
-    date_of_birth,
-  } = req.body;
+//implement email verification before account creation
 
-  console.log('ahhhhhhhhh');
+interface IRow {
+  id: number;
+}
 
-  console.log(
-    process.env.DB_USER,
-    process.env.DB_HOST,
-    process.env.DB_DATABASE,
-    typeof process.env.DB_PASSWORD
-  );
-  //check if password==confirmPassword
-  if (password !== confirmPassword) {
-    return next(
-      new AppError(
-        'ensure that password and confirm password fields are the same',
-        400
-      )
-    );
-  }
-  //check if no email like that in db
-  //hash password
-  //add row to db
-  pool.query(
-    `INSERT INTO users (email, password, last_name, first_name, date_of_birth, role, is_flagged, is_deleted, is_suspended, created_at) VALUES (${email}, ${password}, ${last_name}, ${first_name}, ${date_of_birth}, 'user', false, false, false, date.now())`,
-    (error: Error, results) => {
+const signup = catchAsync(
+  async (req: Request, res: Response, next: NextFunction) => {
+    const client = await pool.connect();
+    const {
+      email,
+      password,
+      confirmPassword,
+      last_name,
+      first_name,
+      date_of_birth,
+    } = req.body;
+
+    //check if password==confirmPassword ---d
+    if (password !== confirmPassword) {
+      return next(
+        new AppError(
+          'ensure that password and confirm password fields are the same',
+          400
+        )
+      );
+    }
+    //check if no email like that in db --- d
+    //hash password ---d
+    //add row to db---- d
+
+    const query =
+      'INSERT INTO users (email, password, last_name, first_name, date_of_birth, role, is_flagged, is_deleted, is_suspended, created_at) VALUES ($1, $2, $3, $4, $5, $6, false, false, false, NOW()) RETURNING id, email, last_name, first_name, date_of_birth;';
+    const values = [
+      email,
+      await authServices.hashPassword(password),
+      last_name,
+      first_name,
+      date_of_birth,
+      'user',
+    ];
+
+    client.query(query, values, (error: Error, results) => {
       if (error) {
         return next(error);
       }
-      res.status(201).json({
-        status: 'success',
-        message: 'account successfully created',
-        user: results.rows,
-      });
-    }
-  );
-  //send account created email
-  //send cookie
-};
 
+      //sendcookie----d
+      const token = authServices.createJWT((results.rows[0] as IRow).id);
+
+      res
+        .status(201)
+        .cookie('jwt', token, {
+          expires: new Date(Date.now() + parseInt(JWT_EXPIRES_IN as string)),
+          httpOnly: true,
+          secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+        })
+        .json({
+          status: 'success',
+          message: 'account successfully created',
+          user: results.rows,
+        });
+    });
+    //send account created email
+  }
+);
 export default {signup};

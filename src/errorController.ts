@@ -1,5 +1,6 @@
 import {Request, Response, NextFunction} from 'express';
 import AppError from './utils/appError';
+import {NODE_ENV} from './config/envConfig';
 
 interface IAppError extends Error {
   statusCode: number;
@@ -12,12 +13,15 @@ const handleJWTError = () =>
 const handleJWTExpiredError = () =>
   new AppError('Your token has expired! Please log in again.', 401);
 
-const sendErrorDev = (err: IAppError, req: Request, res: Response) => {
-  return res.status(err.statusCode).json({
-    status: err.status,
-    error: err,
-    message: err.message,
-    stack: err.stack,
+const handleDuplicateEmailError = () =>
+  new AppError('an account with the email inputted exists already', 422);
+
+const sendErrorDev = (error: IAppError, req: Request, res: Response) => {
+  return res.status(error.statusCode).json({
+    status: error.status,
+    error: error,
+    message: error.message,
+    stack: error.stack,
   });
 };
 export default (
@@ -31,13 +35,19 @@ export default (
   err.statusCode = err.statusCode || 500;
   err.status = err.status || 'error';
 
-  if (process.env.NODE_ENV === 'development') {
+  if (NODE_ENV === 'development') {
     let error: IAppError = {...err};
     error.message = err.message;
+    if (
+      error.message ===
+      'duplicate key value violates unique constraint "users_email_key"'
+    )
+      error = handleDuplicateEmailError();
+
     if (error.name === 'JsonWebTokenError') error = handleJWTError();
     if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
     sendErrorDev(error, req, res);
-  } else if (process.env.NODE_ENV === 'production') {
+  } else if (NODE_ENV === 'production') {
     // let error = {...err};
     // error.message = err.message;
     // if (error.name === 'JsonWebTokenError') error = handleJWTError();

@@ -1,12 +1,14 @@
-import dotenv from 'dotenv';
+//import dotenv from 'dotenv';
 import app from './app';
-import path = require('path');
+import {PORT} from './config/envConfig';
 
-dotenv.config({path: path.resolve(__dirname, '../.env')});
+//import path = require('path');
 
-console.log(dotenv.config({path: path.resolve(__dirname, '../.env')}));
+// dotenv.config({path: path.resolve(__dirname, '../.env')});
 
-const port: string | number = process.env.PORT || 5656;
+// console.log(dotenv.config({path: path.resolve(__dirname, '../.env')}));
+
+const port: string | number = parseInt(PORT as string) || 5656;
 const server = app.listen(port, () => {
   console.log(`App running on port ${port}...`);
 });
