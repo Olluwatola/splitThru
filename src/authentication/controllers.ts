@@ -76,13 +76,14 @@ const signup = catchAsync(
 const login = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const client = await pool.connect();
-    const {email, password} = req.body;
+    const userEmail = req.body.email;
+    const userPassword = req.body.password;
     const query =
       'SELECT id, email, password, last_name, first_name, date_of_birth, role, is_flagged, is_deleted, is_suspended FROM users WHERE email = $1';
-    const values = [email.toLowerCase()];
+    const values = [userEmail.toLowerCase()];
 
     client.query(query, values, async (error: Error, results) => {
-      if (!email || !password) {
+      if (!userEmail || !userPassword) {
         return next(new AppError('please provide email and password', 400));
       }
       if (error) {
@@ -94,48 +95,55 @@ const login = catchAsync(
       }
       //check if password matches
       if (
-        (await bcrypt.compare(results.rows[0].password, password)) === false
+        (await bcrypt.compare(userPassword, results.rows[0].password)) === false
       ) {
-        console.log(await bcrypt.compare(results.rows[0].password, password));
+        console.log(
+          await bcrypt.compare(userPassword, results.rows[0].password)
+        );
         return next(new AppError('wrong email or password', 401));
       }
-      //check if account has not been deleted
-      if (results.rows[0].is_deleted) {
-        return next(
-          new AppError(
-            'Your account has been deleted. Please contact support for further assistance.',
-            403
-          )
-        );
-      }
-      //check if account has not been banned
-      if (results.rows[0].is_suspended) {
-        return next(
-          new AppError(
-            'Your account is currently suspended. Please contact support for further assistance.',
-            403
-          )
-        );
-      }
-      //send jwt
-      if ((await bcrypt.compare(results.rows[0].password, password)) === true) {
-        console.log(await bcrypt.compare(results.rows[0].password, password));
-        return next(new AppError('wrong email or password', 401));
-      }
-      const token = authServices.createJWT((results.rows[0] as IRow).id);
 
-      res
-        .status(201)
-        .cookie('jwt', token, {
-          expires: new Date(Date.now() + parseInt(JWT_EXPIRES_IN as string)),
-          httpOnly: true,
-          secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
-        })
-        .json({
-          status: 'success',
-          message: 'account successfully logged in',
-          user: results.rows[0],
-        });
+      if (
+        (await bcrypt.compare(userPassword, results.rows[0].password)) === true
+      ) {
+        console.log(
+          await bcrypt.compare(userPassword, results.rows[0].password)
+        );
+
+        //check if account has not been deleted
+        if (results.rows[0].is_deleted) {
+          return next(
+            new AppError(
+              'Your account has been deleted. Please contact support for further assistance.',
+              403
+            )
+          );
+        }
+        //check if account has not been banned
+        if (results.rows[0].is_suspended) {
+          return next(
+            new AppError(
+              'Your account is currently suspended. Please contact support for further assistance.',
+              403
+            )
+          );
+        }
+
+        //send jwt
+
+        const token = authServices.createJWT((results.rows[0] as IRow).id);
+        res
+          .status(201)
+          .cookie('jwt', token, {
+            expires: new Date(Date.now() + parseInt(JWT_EXPIRES_IN as string)),
+            httpOnly: true,
+            secure: req.secure || req.headers['x-forwarded-proto'] === 'https',
+          })
+          .json({
+            status: 'success',
+            message: 'account successfully logged in',
+          });
+      }
     });
   }
 );
