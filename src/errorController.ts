@@ -5,6 +5,7 @@ import {NODE_ENV} from './config/envConfig';
 interface IAppError extends Error {
   statusCode: number;
   status: string;
+  code?: string;
 }
 
 const handleJWTError = () =>
@@ -15,6 +16,9 @@ const handleJWTExpiredError = () =>
 
 const handleDuplicateEmailError = () =>
   new AppError('an account with the email inputted exists already', 422);
+
+const handleAlreadyBlockedUserError = () =>
+  new AppError('you have blocked that user already', 409);
 
 const sendErrorDev = (error: IAppError, req: Request, res: Response) => {
   return res.status(error.statusCode).json({
@@ -46,6 +50,7 @@ export default (
 
     if (error.name === 'JsonWebTokenError') error = handleJWTError();
     if (error.name === 'TokenExpiredError') error = handleJWTExpiredError();
+    if (error.code === '23505') error = handleAlreadyBlockedUserError();
     sendErrorDev(error, req, res);
   } else if (NODE_ENV === 'production') {
     // let error = {...err};

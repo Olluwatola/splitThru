@@ -3,6 +3,9 @@ import express from 'express';
 import logger from './logger';
 import authRouter from './authentication/routes';
 import errorController from './errorController';
+import expenseRouter from './expense/routes';
+import currencyRouter from './currency/routes';
+import userRouter from './users/routes';
 
 const app = express();
 
@@ -21,6 +24,10 @@ app.use(express.urlencoded({extended: true}));
 
 //routes
 app.use('/api/v1/auth', authRouter);
+app.use('/api/v1/expense', expenseRouter);
+app.use('/api/v1/currency', currencyRouter);
+app.use('/api/v1/users', userRouter);
+
 app.use(errorController);
 
 app.use(morganMiddleware);
