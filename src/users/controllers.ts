@@ -53,26 +53,34 @@ const addFriend = catchAsync(
       );
       //create friend_request row
       try {
-        const createRequestQuery =
-          "IF EXISTS ( SELECT 1 FROM friendships WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id=$3 AND user2_id = $4) AND friendship_status='active') BEGIN THROW 50001,'Error : Friendship already exists. Cannot send friend request.', 1; END ELSE BEGIN  INSERT INTO friend_requests (sender_id, recipient_id, status, created_at, updated_at) VALUES ($5, $6, 'pending', NOW(), NOW()); END";
-        const createRequestValues = [
+        const checkFriendshipQuery =
+          "SELECT 1 FROM friendships WHERE (user1_id = $1 AND user2_id = $2) OR (user1_id = $3 AND user2_id = $4) AND friendship_status = 'active'";
+        const checkFriendshipValues = [
           req?.currentUser?.id,
           addUserID,
           addUserID,
           req?.currentUser?.id,
-          req?.currentUser?.id,
-          addUserID,
         ];
-        client.query(
-          createRequestQuery,
-          createRequestValues,
+        await client.query(
+          checkFriendshipQuery,
+          checkFriendshipValues,
           async (error: Error, results) => {
-            if (error) {
-              return next(error);
+            if (results.rows.length > 0) {
+              // Friendship exists
+              return next(
+                new AppError('you are friends with this user already', 401)
+              );
+            } else {
+              // Friendship doesn't exist, proceed to add the user
+              const addFriendQuery =
+                "INSERT INTO friend_requests (sender_id, recipient_id, status, created_at, updated_at) VALUES ($1, $2, 'pending', NOW(), NOW())";
+              const addFriendValues = [req?.currentUser?.id, addUserID];
+              await client.query(addFriendQuery, addFriendValues);
+
+              res.status(200).json({
+                message: 'Successfully added user',
+              });
             }
-            res.status(200).json({
-              message: 'Successfully added user ',
-            });
           }
         );
       } catch (error) {
@@ -126,22 +134,45 @@ const block = catchAsync(
 );
 
 //accept friend
-const accept = catchAsync(
+const acceptFriendRequest = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
-    const query =
-      "BEGIN TRANSACTION; WITH variable_master AS ( SELECT sender_id, recipient_id FROM friend_requests WHERE request_id = 10 AND recipient_id = 8 ) INSERT INTO friendships (user1_id, user2_id, friendship_status, created_at, updated_at) SELECT LEAST(sender_id, recipient_id), GREATEST(sender_id, recipient_id), 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP FROM variable_master; UPDATE friend_requests SET status = 'active' WHERE request_id = 8; COMMIT TRANSACTION;";
+    const confirmRequestQuery =
+      "SELECT request_id, sender_id, recipient_id, status FROM friend_requests WHERE request_id = $1 AND recipient_id = $2 AND status = 'pending';";
+    const confirmRequestValues = [req?.params?.requestid, req?.currentUser?.id];
     const client = await pool.connect();
-    client.query(query, async (error: Error, results) => {
-      if (error) {
-        return next(error);
+    console.log(`this is the me ${req?.currentUser?.id}`);
+    client.query(
+      confirmRequestQuery,
+      confirmRequestValues,
+      async (error: Error, results) => {
+        if (error) {
+          return next(error);
+        }
+        if (results.rows.length < 1) {
+          return next(new AppError('you are not allowed to do that', 401));
+        }
+        // create tx to create frienship doc and update friendreq doc
+        const acceptFriendTxQuery = `BEGIN TRANSACTION; INSERT INTO friendships (user1_id, user2_id, friendship_status, created_at, updated_at) VALUES (${Math.min(
+          results.rows[0].sender_id,
+          results.rows[0].recipient_id
+        )},${Math.max(
+          results.rows[0].sender_id,
+          results.rows[0].recipient_id
+        )}, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP); UPDATE friend_requests SET status = 'active' WHERE request_id = ${
+          results.rows[0].request_id
+        } ; COMMIT TRANSACTION;`;
+        client.query(acceptFriendTxQuery, async (error: Error, results) => {
+          if (error) {
+            return next(error);
+          }
+          res.status(200).json({
+            message: 'Successfully accepted user as friend ',
+          });
+        });
       }
-      console.log(results);
-      res.status(200).json({
-        message: 'Successfully blocked user ',
-      });
-    });
+    );
   }
 );
 //unfriend
 
-export default {addFriend, block};
+export default {addFriend, block, acceptFriendRequest};

@@ -1,9 +1,9 @@
 import {Request, Response, NextFunction} from 'express';
 import catchAsync from '../utils/catchAsync';
-import userServices from './../users/services'
+import userServices from './../users/services';
 import AppError from '../utils/appError';
-import {ICurrencyModel} from './../currency/interfaces';
-import {QueryResult} from 'pg';
+// import {ICurrencyModel} from './../currency/interfaces';
+// import {QueryResult} from 'pg';
 import {ulid} from 'ulid';
 import pool from './../db/db';
 import expenseServices from './services';
@@ -155,6 +155,7 @@ import expenseServices from './services';
 const createExpense = catchAsync(
   async (req: Request, res: Response, next: NextFunction) => {
     const {costOfExpense, currency, description, participants} = req.body;
+    const client = await pool.connect();
 
     // Validation checks
     expenseServices.validateExpenseInput(
@@ -164,6 +165,7 @@ const createExpense = catchAsync(
       participants,
       next
     );
+    console.log(Object.keys(participants));
 
     // Fetch currency details
     const currencyReturned = await expenseServices.getCurrencyDetails(
@@ -171,12 +173,15 @@ const createExpense = catchAsync(
       next
     );
 
-    // ensure all participants are friends with expense creator
-    // const isFriendsWithParticipants = userServices.confirmIsFriendsWith(
-    //   req?.currentUser?.id,
-    //   participants
-    // );
+    //  ensure all participants are friends with expense creator
+    const isFriendsWithParticipants = await userServices.confirmIsFriendsWith(
+      client,
+      req?.currentUser?.id as string,
+      Object.keys(participants),
+      next
+    );
 
+    console.log(isFriendsWithParticipants);
     try {
       const expId: string = ulid();
 
@@ -192,18 +197,24 @@ const createExpense = catchAsync(
       );
 
       // Execute the transaction
-      const client = await pool.connect();
 
-      client.query(sqlString, (error: Error) => {
-        client.release();
-        if (error) {
-          return next(error);
-        } else {
-          res.status(200).json({
-            message: 'Successfully created expense',
-          });
-        }
-      });
+      if (isFriendsWithParticipants === false) {
+        throw new AppError(
+          'ensure all participants are friends of the you',
+          401
+        );
+      } else {
+        client.query(sqlString, (error: Error) => {
+          client.release();
+          if (error) {
+            return next(error);
+          } else {
+            res.status(200).json({
+              message: 'Successfully created expense',
+            });
+          }
+        });
+      }
     } catch (error) {
       return next(error);
     }

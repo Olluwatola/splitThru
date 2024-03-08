@@ -5,8 +5,7 @@ import authMiddleware from './../authentication/middleware';
 const router = express.Router();
 
 //unfriend user
-//accept friend request
-//get all friend request
+//get all friend request for a user
 
 // probably implement notifs for friend request
 
@@ -15,5 +14,6 @@ router.use(authMiddleware.protect);
 
 router.post('/addfriend/:id', controllers.addFriend);
 router.post('/block/:id', controllers.block);
+router.post('/accept/:requestid', controllers.acceptFriendRequest);
 
 export default router;
